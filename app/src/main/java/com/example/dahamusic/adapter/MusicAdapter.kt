@@ -2,6 +2,7 @@ package com.example.dahamusic.adapter
 
 import android.content.Context
 import android.media.MediaMetadataRetriever
+import android.net.Uri
 import android.view.*
 import androidx.recyclerview.widget.AsyncListDiffer
 import androidx.recyclerview.widget.DiffUtil
@@ -11,11 +12,10 @@ import com.example.dahamusic.interfaces.OnMusicItemClick
 import com.example.dahamusic.databinding.MusicItemViewBinding
 import com.example.dahamusic.room.RoomAudioModel
 
-
 class MusicAdapter(
-        private val context: Context,
-        val listener: OnMusicItemClick,
-        val itemClick: (pos: Int) -> Unit
+    private val context: Context,
+    val listener: OnMusicItemClick,
+    val itemClick: (pos: Int) -> Unit
 ): RecyclerView.Adapter<MusicAdapter.ViewHolderHomeFragment>() {
 
     private val itemCallback = object : DiffUtil.ItemCallback<RoomAudioModel>(){
@@ -34,20 +34,28 @@ class MusicAdapter(
 
         fun onBind(model: RoomAudioModel, position: Int){
 
-            val image = getAlbumArt(differ.currentList[position].audioUri)
+            var image: ByteArray? = null
+            val uriString = differ.currentList[position].audioUri
+            if (uriString != null) {
+                image = getAlbumArt(uriString, context)
+            }
+
             binding.musicName.text = model.audioTitle
             binding.musicAuthor.text = model.audioArtist
             binding.cardMenu.elevation = 0F
             binding.cardMusicPhoto.elevation = 0F
 
-            if (image!=null){
+            if (image != null){
                 Glide.with(context).asBitmap().load(image).into(binding.onGoingMusicImage)
+            } else {
+                binding.onGoingMusicImage.setImageDrawable(null)
             }
+
             if (model.isSelected){
                 binding.ivBack.visibility = View.GONE
                 binding.ivSelector.visibility = View.VISIBLE
                 binding.cardMenu.isEnabled = false
-            }else{
+            } else {
                 binding.ivBack.visibility = View.VISIBLE
                 binding.ivSelector.visibility = View.GONE
                 binding.cardMenu.isEnabled = true
@@ -57,20 +65,18 @@ class MusicAdapter(
                 listener.onMenuItemClick(model, position, binding.cardMenu)
             }
             binding.root.setOnClickListener {
-                    itemClick.invoke(position)
+                itemClick.invoke(position)
             }
             binding.root.setOnLongClickListener {
                 listener.onMusicModelLongClick(position)
-
                 return@setOnLongClickListener true
             }
         }
-
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolderHomeFragment {
-        return  ViewHolderHomeFragment(
-                MusicItemViewBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return ViewHolderHomeFragment(
+            MusicItemViewBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         )
     }
 
@@ -80,11 +86,16 @@ class MusicAdapter(
         holder.onBind(differ.currentList[position], position)
     }
 
-    private fun getAlbumArt(uri: String): ByteArray? {
+    private fun getAlbumArt(uriString: String, context: Context): ByteArray? {
         val retriever = MediaMetadataRetriever()
-        retriever.setDataSource(uri)
-        val art = retriever.embeddedPicture
-        retriever.release()
-        return art
+        return try {
+            retriever.setDataSource(context, Uri.parse(uriString))
+            val art = retriever.embeddedPicture
+            retriever.release()
+            art
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 }

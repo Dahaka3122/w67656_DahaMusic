@@ -2,6 +2,8 @@ package com.example.dahamusic.ui
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -21,19 +23,18 @@ import com.example.dahamusic.databinding.ActivityFolderBinding
 import com.example.dahamusic.interfaces.OnMusicItemClick
 import com.example.dahamusic.room.RoomAudioModel
 import com.example.dahamusic.viewmodel.MediaViewModel
-import com.github.zawadz88.materialpopupmenu.popupMenu
 import java.io.Serializable
 import java.util.*
 
-class FolderActivity : AppCompatActivity(),Serializable, OnMusicItemClick {
+class FolderActivity : AppCompatActivity(), Serializable, OnMusicItemClick {
 
     private lateinit var binding: ActivityFolderBinding
     private lateinit var adapter: MusicAdapter
     private lateinit var musicList: List<RoomAudioModel>
     var isSelectionModeEnabled = false
     var selectList = ArrayList<RoomAudioModel>()
-    private lateinit var viewModel:MediaViewModel
-    private lateinit var folderName :String
+    private lateinit var viewModel: MediaViewModel
+    private lateinit var folderName: String
 
     @SuppressLint("SetTextI18n")
     @RequiresApi(Build.VERSION_CODES.O)
@@ -45,7 +46,8 @@ class FolderActivity : AppCompatActivity(),Serializable, OnMusicItemClick {
         viewModel = ViewModelProvider(this).get(MediaViewModel::class.java)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR)
+            window.decorView.systemUiVisibility =
+                (View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -54,7 +56,7 @@ class FolderActivity : AppCompatActivity(),Serializable, OnMusicItemClick {
         }
 
         folderName = intent.getStringExtra("folderName") as String
-        viewModel.getFolder(folderName).observe(this){
+        viewModel.getFolder(folderName).observe(this) {
             musicList = it.audioList
             binding.textView.text = "${musicList.size} tracks"
             setAdapter(musicList, folderName)
@@ -66,10 +68,9 @@ class FolderActivity : AppCompatActivity(),Serializable, OnMusicItemClick {
         binding.shareCard.elevation = 0F
         binding.deleteCard.elevation = 0F
         binding.selectCard.elevation = 0F
-        binding.selectCard.elevation = 0F
 
         binding.addCard.setOnClickListener {
-            for(i in 0 until selectList.size){
+            for (i in 0 until selectList.size) {
                 selectList[i].isSelected = false
             }
             val intent = Intent(this, FolderSelectionActivity::class.java)
@@ -86,9 +87,9 @@ class FolderActivity : AppCompatActivity(),Serializable, OnMusicItemClick {
         binding.shareCard.setOnClickListener {
             Toast.makeText(this, selectList[0].audioUri, Toast.LENGTH_SHORT).show()
             val sharePath: String = Environment.getExternalStorageDirectory().path
-                    .toString() + Uri.parse(selectList[0].audioUri)
+                .toString() + Uri.parse(selectList[0].audioUri)
             val sharingIntent = Intent(Intent.ACTION_SEND)
-            val shareBody =  Uri.parse(selectList[0].audioUri)
+            val shareBody = Uri.parse(selectList[0].audioUri)
             sharingIntent.putExtra(Intent.EXTRA_STREAM, shareBody)
             sharingIntent.type = "audio/*"
             startActivity(Intent.createChooser(sharingIntent, "Share using"))
@@ -97,9 +98,9 @@ class FolderActivity : AppCompatActivity(),Serializable, OnMusicItemClick {
         }
 
         binding.deleteCard.setOnClickListener {
-            viewModel.getFolder(folderName).observe(this){
+            viewModel.getFolder(folderName).observe(this) {
                 val folderList = it.audioList.toMutableList()
-                for(i in 0 until selectList.size){
+                for (i in 0 until selectList.size) {
                     selectList[i].isSelected = false
                     folderList.remove(selectList[i])
                     Toast.makeText(this, selectList[i].audioTitle, Toast.LENGTH_SHORT).show()
@@ -108,7 +109,7 @@ class FolderActivity : AppCompatActivity(),Serializable, OnMusicItemClick {
                 viewModel.updateFolder(it)
             }
 
-            
+
             binding.bottomSheet.visibility = View.GONE
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 window.navigationBarColor = getColor(R.color.white)
@@ -120,7 +121,7 @@ class FolderActivity : AppCompatActivity(),Serializable, OnMusicItemClick {
             if (selectList.size == adapter.differ.currentList.size) {
                 binding.selectAllIv.setImageResource(R.drawable.ic_dry_clean)
                 binding.selectedMusicCount.text = "0"
-                for (i in 0 until adapter.differ.currentList.size){
+                for (i in 0 until adapter.differ.currentList.size) {
                     adapter.differ.currentList[i].isSelected = false
                 }
                 adapter.notifyDataSetChanged()
@@ -130,7 +131,7 @@ class FolderActivity : AppCompatActivity(),Serializable, OnMusicItemClick {
                 binding.selectAllIv.setImageResource(R.drawable.ic_check__2_)
                 selectList.clear()
                 selectList.addAll(adapter.differ.currentList)
-                for (i in 0 until adapter.differ.currentList.size){
+                for (i in 0 until adapter.differ.currentList.size) {
                     adapter.differ.currentList[i].isSelected = true
                 }
                 adapter.notifyDataSetChanged()
@@ -183,43 +184,63 @@ class FolderActivity : AppCompatActivity(),Serializable, OnMusicItemClick {
     }
 
     override fun onMenuItemClick(model: RoomAudioModel, position: Int, view: View) {
+        val popupMenu = androidx.appcompat.widget.PopupMenu(this@FolderActivity, view)
 
-        val popupMenu = popupMenu {
-            style = R.style.Widget_MPM_Menu_Dark_CustomBackground
-            section {
-                item {
-                    label = "Add to"
-                    labelColor = ContextCompat.getColor(this@FolderActivity, R.color.folderActivity)
-                    icon = R.drawable.ic_add__4_ //optional
-                    iconColor = ContextCompat.getColor(this@FolderActivity, R.color.folderActivity)
-                    callback = {
-                        val intent = Intent(this@FolderActivity, FolderSelectionActivity::class.java)
-                        val data = listOf<RoomAudioModel>(model)
-                        intent.putExtra("data", data as Serializable)
-                        startActivity(intent)
-                    }
+        // Wymuszenie ikon w popupMenu (używamy refleksji dla starszych wersji Androida, ale w nowych działa metoda publiczna)
+        try {
+            val fieldMPopup = androidx.appcompat.widget.PopupMenu::class.java.getDeclaredField("mPopup")
+            fieldMPopup.isAccessible = true
+            val mPopup = fieldMPopup.get(popupMenu)
+            mPopup.javaClass.getDeclaredMethod("setForceShowIcon", Boolean::class.java)
+                .invoke(mPopup, true)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        val color = ContextCompat.getColor(this@FolderActivity, R.color.folderActivity)
+
+        // Opcja 1: "Add to"
+        val title1 = android.text.SpannableString("Add to")
+        title1.setSpan(android.text.style.ForegroundColorSpan(color), 0, title1.length, 0)
+        val item1 = popupMenu.menu.add(android.view.Menu.NONE, 1, android.view.Menu.NONE, title1)
+        item1.setIcon(R.drawable.ic_add__4_)
+        item1.icon?.setTint(color)
+
+        // Opcja 2: Warunkowe "Remove"
+        if (folderName != "Your musics") {
+            val title2 = android.text.SpannableString(getString(R.string.remove))
+            title2.setSpan(android.text.style.ForegroundColorSpan(color), 0, title2.length, 0)
+            val item2 = popupMenu.menu.add(android.view.Menu.NONE, 2, android.view.Menu.NONE, title2)
+            item2.setIcon(R.drawable.ic_trash)
+            item2.icon?.setTint(color)
+        }
+
+        // Obsługa kliknięć
+        popupMenu.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                1 -> {
+                    val intent = Intent(this@FolderActivity, FolderSelectionActivity::class.java)
+                    val data = listOf<RoomAudioModel>(model)
+                    intent.putExtra("data", data as Serializable)
+                    startActivity(intent)
+                    true
                 }
-                if (folderName.toString()!="Your musics"){
-                    item {
-                        labelRes = R.string.remove
-                        labelColor = ContextCompat.getColor(this@FolderActivity, R.color.folderActivity)
-                        iconDrawable = ContextCompat.getDrawable(this@FolderActivity, R.drawable.ic_trash) //optional
-                        iconColor = ContextCompat.getColor(this@FolderActivity, R.color.folderActivity)
-                        callback = {
-                            Toast.makeText(this@FolderActivity, "Do something to remove folder!", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                2 -> {
+                    Toast.makeText(this@FolderActivity, "Do something to remove folder!", Toast.LENGTH_SHORT).show()
+                    true
                 }
+                else -> false
             }
         }
-        popupMenu.show(this, view)
+
+        popupMenu.show()
     }
 
     override fun onBackPressed() {
         if (isSelectionModeEnabled) {
             Toast.makeText(this, "1", Toast.LENGTH_SHORT).show()
             isSelectionModeEnabled = false
-            for(i in 0 until adapter.differ.currentList.size){
+            for (i in 0 until adapter.differ.currentList.size) {
                 adapter.differ.currentList[i].isSelected = false
             }
             adapter.notifyDataSetChanged()
@@ -228,10 +249,10 @@ class FolderActivity : AppCompatActivity(),Serializable, OnMusicItemClick {
                 window.navigationBarColor = getColor(R.color.white)
             }
             binding.selectedMusicCount.text = 0.toString()
-        } else{
+        } else {
             super.onBackPressed()
         }
-        if (binding.bottomSheet.visibility == View.VISIBLE){
+        if (binding.bottomSheet.visibility == View.VISIBLE) {
             Toast.makeText(this, "2", Toast.LENGTH_SHORT).show()
             binding.bottomSheet.visibility = View.GONE
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -251,17 +272,19 @@ class FolderActivity : AppCompatActivity(),Serializable, OnMusicItemClick {
         val roomAudioModel = adapter.differ.currentList[position]
         adapter.differ.currentList[position].isSelected = !roomAudioModel.isSelected
         if (adapter.differ.currentList[position].isSelected) {
-            binding.selectedMusicCount.text = "${binding.selectedMusicCount.text.toString().toInt() + 1}"
+            binding.selectedMusicCount.text =
+                "${binding.selectedMusicCount.text.toString().toInt() + 1}"
         } else {
-            binding.selectedMusicCount.text = "${binding.selectedMusicCount.text.toString().toInt() - 1}"
+            binding.selectedMusicCount.text =
+                "${binding.selectedMusicCount.text.toString().toInt() - 1}"
         }
         selectList.add(roomAudioModel)
         adapter.notifyItemChanged(position)
     }
 
-    private fun setBehaviour(boolean: Boolean){
+    private fun setBehaviour(boolean: Boolean) {
         isSelectionModeEnabled = false
-        for(i in 0 until adapter.differ.currentList.size){
+        for (i in 0 until adapter.differ.currentList.size) {
             adapter.differ.currentList[i].isSelected = boolean
         }
         adapter.notifyDataSetChanged()

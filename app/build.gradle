@@ -6,13 +6,13 @@ plugins {
 }
 
 android {
-    compileSdkVersion 30
+    compileSdkVersion 33
     buildToolsVersion "30.0.2"
 
     defaultConfig {
         applicationId "com.example.dahamusic"
         minSdkVersion 23
-        targetSdkVersion 30
+        targetSdkVersion 33
         versionCode 1
         versionName "1.0"
 
@@ -66,9 +66,6 @@ dependencies {
 
     //media library
     implementation 'androidx.media:media:1.4.0'
-
-    //material popup  menu
-    implementation 'com.github.zawadz88.materialpopupmenu:material-popup-menu:4.1.0'
 
     //room
     def room_version = "2.3.0"

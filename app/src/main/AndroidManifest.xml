@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
     <application
         android:allowBackup="true"
@@ -16,11 +17,16 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.DahaMusic">
         <activity android:name="com.example.dahamusic.ui.FolderSelectionActivity" />
-        <activity android:name="com.example.dahamusic.ui.MusicActivity" />
+        <activity
+            android:name="com.example.dahamusic.ui.MusicActivity"
+            android:exported="false"/>
         <activity
             android:name="com.example.dahamusic.ui.FolderActivity"
-            android:windowSoftInputMode="adjustNothing" />
-        <activity android:name="com.example.dahamusic.ui.MainActivity">
+            android:windowSoftInputMode="adjustNothing"
+            android:exported="false"/>
+        <activity
+            android:name="com.example.dahamusic.ui.MainActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

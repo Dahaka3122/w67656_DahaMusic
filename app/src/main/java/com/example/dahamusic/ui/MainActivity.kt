@@ -3,6 +3,7 @@ package com.example.dahamusic.ui
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlertDialog
+import android.content.ContentUris
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
@@ -29,16 +30,15 @@ import com.example.dahamusic.interfaces.OnFolderListener
 import com.example.dahamusic.room.RoomAudioModel
 import com.example.dahamusic.room.RoomFolderModel
 import com.example.dahamusic.viewmodel.MediaViewModel
-import com.github.zawadz88.materialpopupmenu.popupMenu
 import java.io.Serializable
 import java.util.*
 
-class MainActivity : AppCompatActivity(), OnFolderListener,Serializable {
+class MainActivity : AppCompatActivity(), OnFolderListener, Serializable {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var adapter: FolderAdapter
     private val STORAGE_PERMISSION_CODE = 1
-    private lateinit var viewModel:MediaViewModel
+    private lateinit var viewModel: MediaViewModel
 
     @RequiresApi(Build.VERSION_CODES.O)
     @SuppressLint("Recycle")
@@ -52,18 +52,24 @@ class MainActivity : AppCompatActivity(), OnFolderListener,Serializable {
         binding.cardMenu.elevation = 0F
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            window.decorView.systemUiVisibility =(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or  View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR)
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             window.statusBarColor = getColor(R.color.main_light)
             window.navigationBarColor = getColor(R.color.white)
         }
 
-        if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED) {
-            ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), STORAGE_PERMISSION_CODE)
-        }else{
-            viewModel.folders.observe(this){
+        val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+
+        if (ContextCompat.checkSelfPermission(this@MainActivity, audioPermission) == PackageManager.PERMISSION_DENIED) {
+            ActivityCompat.requestPermissions(
+                this@MainActivity,
+                arrayOf(audioPermission),
+                STORAGE_PERMISSION_CODE
+            )
+        } else {
+            viewModel.folders.observe(this) {
                 setAdapter(it)
             }
         }
@@ -89,74 +95,92 @@ class MainActivity : AppCompatActivity(), OnFolderListener,Serializable {
             }
             ok.setOnClickListener {
                 val folderName = et.text.toString()
-                if (et.text.isNullOrEmpty()){
+                if (et.text.isNullOrEmpty()) {
                     et.error = "Fill field"
-                }else{
-                    val newRoomFolder = RoomFolderModel(folderName = folderName,audioList = emptyList() )
+                } else {
+                    val newRoomFolder = RoomFolderModel(folderName = folderName, audioList = emptyList())
                     insertFolderToDatabase(newRoomFolder)
-                    adapter.notifyItemInserted(viewModel.getFoldersCount()-1)
                     dialog.dismiss()
                 }
             }
         }
     }
 
-    private fun insertMusicsToDatabase(musics: List<RoomAudioModel>){
+    private fun insertMusicsToDatabase(musics: List<RoomAudioModel>) {
         viewModel.insertMusics(musics)
     }
 
-    private fun insertFolderToDatabase(roomFolderModel: RoomFolderModel){
+    private fun insertFolderToDatabase(roomFolderModel: RoomFolderModel) {
         viewModel.insertFolder(roomFolderModel)
     }
 
-    private  fun setAdapter(folders: List<RoomFolderModel>){
-        adapter = FolderAdapter(this,folders)
+    private fun setAdapter(folders: List<RoomFolderModel>) {
+        adapter = FolderAdapter(this, folders)
         adapter.folders = folders
-        binding.recyclerView.adapter=adapter
+        binding.recyclerView.adapter = adapter
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
-    override fun onRequestPermissionsResult(requestCode: Int,
-                                            permissions: Array<String>,
-                                            grantResults: IntArray) {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == STORAGE_PERMISSION_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 
-                    val contentResolver = this.contentResolver
-                    val uri: Uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-                    val cursor: Cursor? = contentResolver.query(uri, null, null, null, null)
-                    val musics = mutableListOf<RoomAudioModel>()
+                val contentResolver = this.contentResolver
+                val uri: Uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                val cursor: Cursor? = contentResolver.query(uri, null, null, null, null)
+                val musics = mutableListOf<RoomAudioModel>()
 
-                    when{
-                        cursor == null -> {
-                            Toast.makeText(this, "Cannot read music !", Toast.LENGTH_SHORT).show()
-
-                        }
-                        !cursor.moveToFirst() -> {
-                            Toast.makeText(this, "No music found on this phone", Toast.LENGTH_SHORT).show()
-
-                        }
-                        else ->{
-                            Toast.makeText(this, "adding started", Toast.LENGTH_SHORT).show()
-                            do {
-                                val title: String = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.TITLE))
-                                val artist: String = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST))
-                                val url: String = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.DATA))
-                                val roomAudio= RoomAudioModel(audioTitle = title,audioDuration = "null",audioArtist = artist,audioUri = url,isFavorite = 0,isSelected = false)
-                                musics.add(roomAudio)
-                                Log.d("INSERTING",roomAudio.audioTitle)
-                                
-                            } while (cursor.moveToNext())
-                            insertMusicsToDatabase(musics)
-                                Log.d("INSERTING_FOLDER","1")
-                                insertFolderToDatabase(RoomFolderModel(folderName = "Your musics",audioList = musics))
-                                insertFolderToDatabase(RoomFolderModel(folderName = "Favorites",audioList = listOf()))
-                            cursor.close()
-                        }
+                when {
+                    cursor == null -> {
+                        Toast.makeText(this, "Cannot read music !", Toast.LENGTH_SHORT).show()
                     }
-                viewModel.folders.observe(this){
-                    Log.d("INSERTING_FOLDER","2")
+                    !cursor.moveToFirst() -> {
+                        Toast.makeText(this, "No music found on this phone", Toast.LENGTH_SHORT).show()
+
+                        Log.d("INSERTING_FOLDER", "Creating playlists...")
+                        insertFolderToDatabase(RoomFolderModel(folderName = "Your musics", audioList = emptyList()))
+                        insertFolderToDatabase(RoomFolderModel(folderName = "Favorites", audioList = emptyList()))
+                    }
+                    else -> {
+                        Toast.makeText(this, "adding started", Toast.LENGTH_SHORT).show()
+                        do {
+                            val title: String = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE))
+                            val artist: String = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST))
+
+                            // --- NOWY SPOSÓB POBIERANIA ŚCIEŻKI (SCOPED STORAGE) ---
+                            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                            val id = cursor.getLong(idColumn)
+                            val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+                            val url: String = contentUri.toString()
+                            // --------------------------------------------------------
+
+                            val roomAudio = RoomAudioModel(
+                                audioTitle = title,
+                                audioDuration = "null",
+                                audioArtist = artist,
+                                audioUri = url,
+                                isFavorite = 0,
+                                isSelected = false
+                            )
+                            musics.add(roomAudio)
+                            Log.d("INSERTING", roomAudio.audioTitle)
+
+                        } while (cursor.moveToNext())
+
+                        insertMusicsToDatabase(musics)
+                        Log.d("INSERTING_FOLDER", "1")
+                        insertFolderToDatabase(RoomFolderModel(folderName = "Your musics", audioList = musics))
+                        insertFolderToDatabase(RoomFolderModel(folderName = "Favorites", audioList = emptyList()))
+                    }
+                }
+                cursor?.close()
+                viewModel.folders.observe(this) {
+                    Log.d("INSERTING_FOLDER", "2")
                     setAdapter(it)
                 }
                 Toast.makeText(this@MainActivity, "Storage Permission Granted", Toast.LENGTH_SHORT).show()
@@ -166,70 +190,83 @@ class MainActivity : AppCompatActivity(), OnFolderListener,Serializable {
         }
     }
 
-    override fun onFolderItemClick(view:View,folder:RoomFolderModel,position: Int) {
-        val popupMenu = popupMenu {
-            style = R.style.Widget_MPM_Menu_Dark_CustomBackground
-            section {
-                item {
-                    label = "Rename"
-                    labelColor = ContextCompat.getColor(this@MainActivity, R.color.folderActivity)
-                    icon = R.drawable.ic_edit__2_
-                    iconColor = ContextCompat.getColor(this@MainActivity, R.color.folderActivity)
-                    callback = {
-                        val dialog = AlertDialog.Builder(this@MainActivity).create()
-                        val dialogView = layoutInflater.inflate(R.layout.change_folder_dialog, binding.root, false)
-                        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-                        dialog.setView(dialogView)
+    override fun onFolderItemClick(view: View, folder: RoomFolderModel, position: Int) {
+        val popupMenu = androidx.appcompat.widget.PopupMenu(this@MainActivity, view)
 
-                        val ok = dialogView.findViewById<CardView>(R.id.yes)
-                        ok.elevation = 0F
-                        val no = dialogView.findViewById<CardView>(R.id.no)
-                        no.elevation = 0F
-                        val et = dialogView.findViewById<EditText>(R.id.textInputEditText)
-                        et.requestFocus()
-                        et.isFocusableInTouchMode = true
-                        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
-                        dialog.show()
+        try {
+            val fieldMPopup = androidx.appcompat.widget.PopupMenu::class.java.getDeclaredField("mPopup")
+            fieldMPopup.isAccessible = true
+            val mPopup = fieldMPopup.get(popupMenu)
+            mPopup.javaClass.getDeclaredMethod("setForceShowIcon", Boolean::class.java)
+                .invoke(mPopup, true)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
-                        no.setOnClickListener {
+        val color = ContextCompat.getColor(this@MainActivity, R.color.folderActivity)
+
+        val title1 = android.text.SpannableString("Rename")
+        title1.setSpan(android.text.style.ForegroundColorSpan(color), 0, title1.length, 0)
+        val item1 = popupMenu.menu.add(android.view.Menu.NONE, 1, android.view.Menu.NONE, title1)
+        item1.setIcon(R.drawable.ic_edit__2_)
+        item1.icon?.setTint(color)
+
+        val title2 = android.text.SpannableString(getString(R.string.remove))
+        title2.setSpan(android.text.style.ForegroundColorSpan(color), 0, title2.length, 0)
+        val item2 = popupMenu.menu.add(android.view.Menu.NONE, 2, android.view.Menu.NONE, title2)
+        item2.setIcon(R.drawable.ic_trash)
+        item2.icon?.setTint(color)
+
+        popupMenu.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                1 -> {
+                    val dialog = AlertDialog.Builder(this@MainActivity).create()
+                    val dialogView = layoutInflater.inflate(R.layout.change_folder_dialog, binding.root, false)
+                    dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                    dialog.setView(dialogView)
+
+                    val ok = dialogView.findViewById<CardView>(R.id.yes)
+                    ok.elevation = 0F
+                    val no = dialogView.findViewById<CardView>(R.id.no)
+                    no.elevation = 0F
+                    val et = dialogView.findViewById<EditText>(R.id.textInputEditText)
+                    et.requestFocus()
+                    et.isFocusableInTouchMode = true
+                    dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+                    dialog.show()
+
+                    no.setOnClickListener {
+                        dialog.dismiss()
+                    }
+                    ok.setOnClickListener {
+                        val newFolderName = et.text.toString()
+                        if (et.text.isNullOrEmpty()) {
+                            et.error = "Fill field"
+                        } else if (viewModel.checkForExist(newFolderName)) {
+                            et.error = "Folder name exists !"
+                        } else {
+                            viewModel.setNewFolderName(newFolderName, folder.folderName)
+                            folder.folderName = newFolderName
+                            adapter.notifyDataSetChanged()
                             dialog.dismiss()
                         }
-                        ok.setOnClickListener {
-                            val folderName = et.text.toString()
-                            if (et.text.isNullOrEmpty()){
-                                et.error = "Fill field"
-                            }
-                            if (viewModel.checkForExist(folderName)){
-                                et.error = "Folder name exists !"
-                            }
-                            else{
-                                viewModel.setNewFolderName(folderName,folder.folderName)
-                                folder.folderName = folderName
-                                adapter.notifyDataSetChanged()
-                                dialog.dismiss()
-                            }
-                        }
                     }
+                    true
                 }
-                item {
-                    labelRes = R.string.remove
-                    labelColor = ContextCompat.getColor(this@MainActivity, R.color.folderActivity)
-                    iconDrawable = ContextCompat.getDrawable(this@MainActivity, R.drawable.ic_trash) //optional
-                    iconColor =ContextCompat.getColor(this@MainActivity, R.color.folderActivity)
-                    callback = {
-
-                        viewModel.deleteFolder(folder)
-                        adapter.notifyDataSetChanged()
-                    }
+                2 -> {
+                    viewModel.deleteFolder(folder)
+                    adapter.notifyDataSetChanged()
+                    true
                 }
+                else -> false
             }
         }
-        popupMenu.show(this, view)
+        popupMenu.show()
     }
 
     override fun onFolderClick(folder: RoomFolderModel) {
-            val intent = Intent(this, FolderActivity::class.java)
-            intent.putExtra("folderName",folder.folderName)
-            startActivity(intent)
+        val intent = Intent(this, FolderActivity::class.java)
+        intent.putExtra("folderName", folder.folderName)
+        startActivity(intent)
     }
 }
