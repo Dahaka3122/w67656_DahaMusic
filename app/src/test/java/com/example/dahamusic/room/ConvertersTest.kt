@@ -21,12 +21,13 @@ class ConvertersTest {
         assertEquals("content://media/external/audio/media/42", song.audioUri)
         assertEquals(1, song.isFavorite)
         assertFalse(song.isSelected)
+        assertTrue(song.isAvailable)
     }
 
     @Test
     fun playlistRoundTripPreservesIdsFavoritesAndOrder() {
         val first = RoomAudioModel("Pierwszy", "null", "A", "content://media/external/audio/media/42", 1, false).apply { id = 7 }
-        val second = RoomAudioModel("Drugi", "120000", "B", "content://media/external/audio/media/84", 0, true).apply { id = 19 }
+        val second = RoomAudioModel("Drugi", "120000", "B", "content://media/external/audio/media/84", 0, true).apply { id = 19; isAvailable = false }
 
         val restored = converters.toList(converters.fromList(listOf(first, second)))
 
@@ -35,6 +36,7 @@ class ConvertersTest {
         assertEquals(listOf(7, 19), restored.map { it.id })
         assertEquals(listOf(1, 0), restored.map { it.isFavorite })
         assertTrue(restored[1].isSelected)
+        assertFalse(restored[1].isAvailable)
         assertTrue(converters.toList(converters.fromList(emptyList())).isEmpty())
     }
 }

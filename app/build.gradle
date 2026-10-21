@@ -25,6 +25,24 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    sourceSets {
+        test.resources.srcDir('schemas')
+    }
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            // Keep Robolectric's downloads and lock file in a writable Gradle cache.
+            def testHome = new File(gradle.gradleUserHomeDir, 'robolectric-test-home')
+            systemProperty 'user.home', testHome.absolutePath
+            doFirst { testHome.mkdirs() }
+            systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+            // Forward optional JVM networking settings for Robolectric SDK downloads.
+            ['http.proxyHost', 'http.proxyPort', 'https.proxyHost', 'https.proxyPort',
+             'javax.net.ssl.trustStore'].each { name ->
+                if (System.getProperty(name)) systemProperty name, System.getProperty(name)
+            }
+        }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -65,12 +83,15 @@ dependencies {
     implementation "androidx.room:room-ktx:$roomVersion"
     kapt "androidx.room:room-compiler:$roomVersion"
 
+    implementation 'androidx.recyclerview:recyclerview:1.4.0'
     implementation 'androidx.core:core-ktx:1.16.0'
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
 
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.15.1'
+    testImplementation 'androidx.test:core:1.6.1'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
 }

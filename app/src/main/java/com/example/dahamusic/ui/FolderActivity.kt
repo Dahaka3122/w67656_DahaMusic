@@ -56,10 +56,12 @@ class FolderActivity : AppCompatActivity(), Serializable, OnMusicItemClick {
         }
 
         folderName = intent.getStringExtra("folderName") as String
-        viewModel.getFolder(folderName).observe(this) {
-            musicList = it.audioList
+        viewModel.observeFolder(folderName).observe(this) { folder ->
+            if (folder == null) return@observe
+            musicList = folder.audioList
             binding.textView.text = "${musicList.size} tracks"
             setAdapter(musicList, folderName)
+            onQueryTextChange(binding.etSearch.text.toString())
         }
 
         binding.tvFolderName.text = folderName
@@ -67,6 +69,9 @@ class FolderActivity : AppCompatActivity(), Serializable, OnMusicItemClick {
         binding.addCard.elevation = 0F
         binding.shareCard.elevation = 0F
         binding.deleteCard.elevation = 0F
+        if (folderName == com.example.dahamusic.library.LibraryMerger.ALL_MUSIC) {
+            binding.deleteCard.visibility = View.GONE
+        }
         binding.selectCard.elevation = 0F
 
         binding.addCard.setOnClickListener {
@@ -164,6 +169,7 @@ class FolderActivity : AppCompatActivity(), Serializable, OnMusicItemClick {
             } else {
                 val intent = Intent(this, MusicActivity::class.java)
                 intent.putExtra("folderName", folderNameMusic)
+                intent.putExtra("audioUri", adapter.differ.currentList[position].audioUri)
                 intent.putExtra("position", position)
                 startActivity(intent)
             }

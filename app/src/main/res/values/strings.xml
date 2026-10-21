@@ -16,4 +16,10 @@
     <string name="delete">Delete</string>
     <string name="share">Share</string>
     <string name="select_all">Select all</string>
+    <string name="refresh_library">Odśwież</string>
+    <string name="refreshing_library">Odświeżanie…</string>
+    <string name="library_refresh_failed">Nie udało się odświeżyć biblioteki. Spróbuj ponownie.</string>
+    <string name="library_permission_required">Zezwól na dostęp do muzyki, aby odświeżyć bibliotekę.</string>
+    <string name="reserved_folder_name">Ta nazwa jest zarezerwowana dla biblioteki.</string>
+    <string name="track_unavailable">Ten utwór nie jest już dostępny w folderze.</string>
 </resources>

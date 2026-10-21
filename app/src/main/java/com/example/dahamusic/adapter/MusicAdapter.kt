@@ -20,11 +20,11 @@ class MusicAdapter(
 
     private val itemCallback = object : DiffUtil.ItemCallback<RoomAudioModel>(){
         override fun areItemsTheSame(oldItem: RoomAudioModel, newItem: RoomAudioModel): Boolean {
-            return oldItem == newItem
+            return oldItem.audioUri == newItem.audioUri
         }
 
         override fun areContentsTheSame(oldItem: RoomAudioModel, newItem: RoomAudioModel): Boolean {
-            return  oldItem.audioUri == newItem.audioUri
+            return oldItem == newItem
         }
     }
 
@@ -62,13 +62,16 @@ class MusicAdapter(
             }
 
             binding.cardMenu.setOnClickListener {
-                listener.onMenuItemClick(model, position, binding.cardMenu)
+                val current = bindingAdapterPosition
+                if (current != RecyclerView.NO_POSITION) listener.onMenuItemClick(differ.currentList[current], current, binding.cardMenu)
             }
             binding.root.setOnClickListener {
-                itemClick.invoke(position)
+                val current = bindingAdapterPosition
+                if (current != RecyclerView.NO_POSITION) itemClick(current)
             }
             binding.root.setOnLongClickListener {
-                listener.onMusicModelLongClick(position)
+                val current = bindingAdapterPosition
+                if (current != RecyclerView.NO_POSITION) listener.onMusicModelLongClick(current)
                 return@setOnLongClickListener true
             }
         }
