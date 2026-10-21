@@ -173,10 +173,10 @@ class FolderActivity : AppCompatActivity(), Serializable, OnMusicItemClick {
     }
 
     fun onQueryTextChange(newText: String) {
-        val userInput = newText.toLowerCase(Locale.ROOT)
+        val userInput = newText.lowercase(Locale.ROOT)
         val myFiles = arrayListOf<RoomAudioModel>()
         for (song in musicList) {
-            if (song.audioTitle.toLowerCase(Locale.ROOT).contains(userInput)) {
+            if (song.audioTitle.lowercase(Locale.ROOT).contains(userInput)) {
                 myFiles.add(song)
             }
         }

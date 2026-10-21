@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [RoomAudioModel::class,RoomFolderModel::class], version = 3,exportSchema = false)
+@Database(entities = [RoomAudioModel::class,RoomFolderModel::class], version = 3,exportSchema = true)
 @TypeConverters(Converters::class)
 abstract class RoomDbHelper : RoomDatabase() {
 

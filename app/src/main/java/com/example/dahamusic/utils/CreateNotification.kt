@@ -24,7 +24,11 @@ class CreateNotification {
 
     lateinit var notification: Notification
 
-    @SuppressLint("MissingPermission")
+    // This method always posts a MediaStyle notification with a MediaSession token.
+    // Media-session notifications are exempt from POST_NOTIFICATIONS on Android 13+.
+    // Lint's generic notify() permission check does not recognize that exemption.
+    // https://developer.android.com/develop/ui/views/notifications/notification-permission#media-sessions
+    @SuppressLint("MissingPermission", "NotificationPermission")
     fun createNotification(context: Context, track: RoomAudioModel, playButton: Int, playbackPosition: Long = 0L, mediaSessionCompat: MediaSessionCompat) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManagerCompat = NotificationManagerCompat.from(context)
