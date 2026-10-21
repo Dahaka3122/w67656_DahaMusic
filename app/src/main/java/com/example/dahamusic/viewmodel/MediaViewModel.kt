@@ -8,6 +8,11 @@ import com.example.dahamusic.room.RoomDbHelper
 import com.example.dahamusic.room.RoomFolderModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import com.example.dahamusic.library.MediaStoreAudioSource
+import android.util.Log
 
 class MediaViewModel(application:Application) : AndroidViewModel(application){
 
@@ -16,8 +21,7 @@ class MediaViewModel(application:Application) : AndroidViewModel(application){
     private val repository : MediaRepository
 
     init {
-        val mediaDao = RoomDbHelper.DatabaseBuilder.getInstance(application).roomDao()
-        repository = MediaRepository(mediaDao)
+        repository = MediaRepository(RoomDbHelper.DatabaseBuilder.getInstance(application))
         musics = repository.getMusics()
         folders = repository.getFolders()
     }
@@ -30,12 +34,59 @@ class MediaViewModel(application:Application) : AndroidViewModel(application){
         return folder
     }
 
-    fun getMusic(position:Int):MutableLiveData<RoomAudioModel>{
-        val music = MutableLiveData<RoomAudioModel>()
-        viewModelScope.launch (Dispatchers.IO) {
-            music.postValue(repository.getMusic(position))
-        }
+    fun getMusic(uri: String): LiveData<RoomAudioModel?> {
+        val music = MutableLiveData<RoomAudioModel?>()
+        viewModelScope.launch(Dispatchers.IO) { music.postValue(repository.getMusic(uri)) }
         return music
+    }
+
+    suspend fun loadPlaybackQueue(name: String) = withContext(Dispatchers.IO) {
+        repository.getFolder(name).audioList
+    }
+
+    fun observeMusic(uri: String) = repository.observeMusic(uri)
+
+    fun observeFolder(name: String) = repository.observeFolder(name)
+
+    data class RefreshState(val isRefreshing: Boolean = false, val failed: Boolean = false)
+    private val _refreshState = MutableLiveData(RefreshState())
+    val refreshState: LiveData<RefreshState> = _refreshState
+    private var refreshJob: Job? = null
+    private var refreshPending = false
+
+    fun refreshLibrary() {
+        if (refreshJob?.isActive == true) {
+            refreshPending = true
+            return
+        }
+        refreshJob = viewModelScope.launch {
+            do {
+                refreshPending = false
+                _refreshState.value = RefreshState(isRefreshing = true)
+                try {
+                    repository.refreshLibrary(MediaStoreAudioSource(getApplication<Application>().contentResolver))
+                    _refreshState.value = RefreshState()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    Log.e("LibraryRefresh", "Unable to refresh library", error)
+                    _refreshState.value = RefreshState(failed = true)
+                }
+            } while (refreshPending)
+        }
+    }
+
+    fun removeMusicFromFolder(name: String, uri: String, onError: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { repository.removeMusicFromFolder(name, uri) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.e("PlaylistEdit", "Unable to remove track from playlist", error)
+                onError()
+            }
+        }
     }
 
     fun updateFolder(folder:RoomFolderModel ){
@@ -72,9 +123,9 @@ class MediaViewModel(application:Application) : AndroidViewModel(application){
         }
     }
 
-    fun setFavorite(intState:Int,position: Int){
+    fun setFavorite(intState:Int,uri: String){
         viewModelScope.launch (Dispatchers.IO) {
-            repository.setFavorite(intState, position)
+            repository.setFavorite(intState, uri)
         }
     }
 

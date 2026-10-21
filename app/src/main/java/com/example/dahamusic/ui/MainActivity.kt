@@ -1,23 +1,17 @@
 package com.example.dahamusic.ui
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.app.AlertDialog
-import android.content.ContentUris
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.database.Cursor
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
-import android.util.Log
 import android.view.*
 import android.widget.EditText
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.core.app.ActivityCompat
@@ -27,11 +21,14 @@ import com.example.dahamusic.R
 import com.example.dahamusic.adapter.FolderAdapter
 import com.example.dahamusic.databinding.ActivityMainBinding
 import com.example.dahamusic.interfaces.OnFolderListener
-import com.example.dahamusic.room.RoomAudioModel
 import com.example.dahamusic.room.RoomFolderModel
 import com.example.dahamusic.viewmodel.MediaViewModel
 import java.io.Serializable
 import java.util.*
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import com.example.dahamusic.library.LibraryMerger
 
 class MainActivity : AppCompatActivity(), OnFolderListener, Serializable {
 
@@ -40,8 +37,6 @@ class MainActivity : AppCompatActivity(), OnFolderListener, Serializable {
     private val STORAGE_PERMISSION_CODE = 1
     private lateinit var viewModel: MediaViewModel
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    @SuppressLint("Recycle")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -56,23 +51,16 @@ class MainActivity : AppCompatActivity(), OnFolderListener, Serializable {
             window.navigationBarColor = getColor(R.color.white)
         }
 
-        val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Manifest.permission.READ_MEDIA_AUDIO
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
+        viewModel.folders.observe(this) { setAdapter(it) }
+        viewModel.refreshState.observe(this) { state ->
+            binding.refreshLibrary.isEnabled = !state.isRefreshing
+            binding.refreshLibrary.setText(if (state.isRefreshing) R.string.refreshing_library else R.string.refresh_library)
+            if (state.failed) Toast.makeText(this, R.string.library_refresh_failed, Toast.LENGTH_LONG).show()
         }
-
-        if (ContextCompat.checkSelfPermission(this@MainActivity, audioPermission) == PackageManager.PERMISSION_DENIED) {
-            ActivityCompat.requestPermissions(
-                this@MainActivity,
-                arrayOf(audioPermission),
-                STORAGE_PERMISSION_CODE
-            )
-        } else {
-            viewModel.folders.observe(this) {
-                setAdapter(it)
-            }
+        binding.refreshLibrary.setOnClickListener {
+            if (hasAudioPermission()) viewModel.refreshLibrary() else requestAudioPermission()
         }
+        if (!hasAudioPermission()) requestAudioPermission()
 
         binding.cardMenu.setOnClickListener {
             val dialog = AlertDialog.Builder(this).create()
@@ -94,9 +82,11 @@ class MainActivity : AppCompatActivity(), OnFolderListener, Serializable {
                 dialog.dismiss()
             }
             ok.setOnClickListener {
-                val folderName = et.text.toString()
+                val folderName = et.text.toString().trim()
                 if (et.text.isNullOrEmpty()) {
                     et.error = "Fill field"
+                } else if (folderName in listOf(LibraryMerger.ALL_MUSIC, LibraryMerger.FAVORITES)) {
+                    et.error = getString(R.string.reserved_folder_name)
                 } else {
                     val newRoomFolder = RoomFolderModel(folderName = folderName, audioList = emptyList())
                     insertFolderToDatabase(newRoomFolder)
@@ -104,10 +94,6 @@ class MainActivity : AppCompatActivity(), OnFolderListener, Serializable {
                 }
             }
         }
-    }
-
-    private fun insertMusicsToDatabase(musics: List<RoomAudioModel>) {
-        viewModel.insertMusics(musics)
     }
 
     private fun insertFolderToDatabase(roomFolderModel: RoomFolderModel) {
@@ -120,77 +106,65 @@ class MainActivity : AppCompatActivity(), OnFolderListener, Serializable {
         binding.recyclerView.adapter = adapter
     }
 
-    @RequiresApi(Build.VERSION_CODES.R)
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
+    private val observerHandler = Handler(Looper.getMainLooper())
+    private val refreshAfterChange = Runnable { if (hasAudioPermission()) viewModel.refreshLibrary() }
+    private var observingMedia = false
+    private val mediaObserver = object : ContentObserver(observerHandler) {
+        override fun onChange(selfChange: Boolean) {
+            observerHandler.removeCallbacks(refreshAfterChange)
+            observerHandler.postDelayed(refreshAfterChange, 600)
+        }
+    }
+
+    private fun audioPermission(): String = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_AUDIO
+    } else Manifest.permission.READ_EXTERNAL_STORAGE
+
+    private fun hasAudioPermission() = ContextCompat.checkSelfPermission(this, audioPermission()) ==
+        PackageManager.PERMISSION_GRANTED
+
+    private fun requestAudioPermission() {
+        ActivityCompat.requestPermissions(this, arrayOf(audioPermission()), STORAGE_PERMISSION_CODE)
+    }
+
+    private fun startLibraryRefresh() {
+        if (!hasAudioPermission()) return
+        if (!observingMedia) {
+            try {
+                contentResolver.registerContentObserver(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, true, mediaObserver)
+                observingMedia = true
+            } catch (denied: SecurityException) {
+                Toast.makeText(this, R.string.library_permission_required, Toast.LENGTH_LONG).show()
+                return
+            }
+        }
+        viewModel.refreshLibrary()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        startLibraryRefresh()
+    }
+
+    override fun onStop() {
+        observerHandler.removeCallbacks(refreshAfterChange)
+        if (observingMedia) {
+            contentResolver.unregisterContentObserver(mediaObserver)
+            observingMedia = false
+        }
+        super.onStop()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == STORAGE_PERMISSION_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-
-                val contentResolver = this.contentResolver
-                val uri: Uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-                val cursor: Cursor? = contentResolver.query(uri, null, null, null, null)
-                val musics = mutableListOf<RoomAudioModel>()
-
-                when {
-                    cursor == null -> {
-                        Toast.makeText(this, "Cannot read music !", Toast.LENGTH_SHORT).show()
-                    }
-                    !cursor.moveToFirst() -> {
-                        Toast.makeText(this, "No music found on this phone", Toast.LENGTH_SHORT).show()
-
-                        Log.d("INSERTING_FOLDER", "Creating playlists...")
-                        insertFolderToDatabase(RoomFolderModel(folderName = "Your musics", audioList = emptyList()))
-                        insertFolderToDatabase(RoomFolderModel(folderName = "Favorites", audioList = emptyList()))
-                    }
-                    else -> {
-                        Toast.makeText(this, "adding started", Toast.LENGTH_SHORT).show()
-                        do {
-                            val title: String = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE))
-                            val artist: String = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST))
-
-                            // --- NOWY SPOSÓB POBIERANIA ŚCIEŻKI (SCOPED STORAGE) ---
-                            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-                            val id = cursor.getLong(idColumn)
-                            val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
-                            val url: String = contentUri.toString()
-                            // --------------------------------------------------------
-
-                            val roomAudio = RoomAudioModel(
-                                audioTitle = title,
-                                audioDuration = "null",
-                                audioArtist = artist,
-                                audioUri = url,
-                                isFavorite = 0,
-                                isSelected = false
-                            )
-                            musics.add(roomAudio)
-                            Log.d("INSERTING", roomAudio.audioTitle)
-
-                        } while (cursor.moveToNext())
-
-                        insertMusicsToDatabase(musics)
-                        Log.d("INSERTING_FOLDER", "1")
-                        insertFolderToDatabase(RoomFolderModel(folderName = "Your musics", audioList = musics))
-                        insertFolderToDatabase(RoomFolderModel(folderName = "Favorites", audioList = emptyList()))
-                    }
-                }
-                cursor?.close()
-                viewModel.folders.observe(this) {
-                    Log.d("INSERTING_FOLDER", "2")
-                    setAdapter(it)
-                }
-                Toast.makeText(this@MainActivity, "Storage Permission Granted", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this@MainActivity, "Storage Permission Denied", Toast.LENGTH_SHORT).show()
-            }
+            if (hasAudioPermission()) startLibraryRefresh()
+            else Toast.makeText(this, R.string.library_permission_required, Toast.LENGTH_LONG).show()
         }
     }
 
     override fun onFolderItemClick(view: View, folder: RoomFolderModel, position: Int) {
+        if (folder.folderName in listOf(LibraryMerger.ALL_MUSIC, LibraryMerger.FAVORITES)) return
         val popupMenu = androidx.appcompat.widget.PopupMenu(this@MainActivity, view)
 
         try {

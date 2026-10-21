@@ -66,6 +66,17 @@
 
     </androidx.cardview.widget.CardView>
 
+    <Button
+        android:id="@+id/refreshLibrary"
+        android:layout_width="112dp"
+        android:layout_height="48dp"
+        android:layout_marginEnd="16dp"
+        android:text="@string/refresh_library"
+        android:textSize="12sp"
+        android:maxLines="1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="@id/yourPlaylist" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
