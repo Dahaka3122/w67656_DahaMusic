@@ -36,6 +36,9 @@ interface RoomDao {
     @Query("SELECT * FROM roomaudiomodel WHERE audioUri = :uri")
     suspend fun getMusic(uri:String):RoomAudioModel?
 
+    @Query("SELECT * FROM RoomAudioModel WHERE audioUri = :uri LIMIT 1")
+    fun observeMusic(uri: String): LiveData<RoomAudioModel?>
+
     @Query("SELECT * FROM RoomAudioModel ORDER BY id")
     suspend fun readAllMusics(): List<RoomAudioModel>
 

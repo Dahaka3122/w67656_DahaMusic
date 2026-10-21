@@ -23,4 +23,7 @@
     <string name="reserved_folder_name">Ta nazwa jest zarezerwowana dla biblioteki.</string>
     <string name="track_unavailable">Ten utwór nie jest już dostępny w folderze.</string>
     <string name="playlist_remove_failed">Nie udało się usunąć utworu z playlisty. Spróbuj ponownie.</string>
+    <string name="playback_failed">Nie udało się odtworzyć pliku. Wybierz inny utwór lub sprawdź dostęp do muzyki.</string>
+    <string name="playback_connection_failed">Nie udało się połączyć z odtwarzaczem. Otwórz ekran ponownie.</string>
+    <string name="no_current_track">Wybierz utwór z biblioteki</string>
 </resources>

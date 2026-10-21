@@ -38,9 +38,8 @@ Nie używamy destrukcyjnego odtwarzania bazy.
 Testy konwertera sprawdzają odczyt dotychczasowego JSON-u playlist
 oraz zachowanie identyfikatorów, kolejności i flag po zapisie/odczycie.
 
-Odtwarzanie nadal realizuje `MediaPlayer`, a ekran pozostaje w XML/View Binding.
-Przebudowa odtwarzania na serwis/Media3 i podniesienie `targetSdk` pozostają
-oddzielnymi etapami.
+Odtwarzanie realizuje Media3 1.6.1 (`ExoPlayer` + `MediaSessionService`).
+Ekran pozostaje w XML/View Binding. Podniesienie `targetSdk` pozostaje osobnym etapem.
 
 Testy JVM i kompilacja APK nie zastępują sprawdzenia na urządzeniu: przed
 wydaniem należy zweryfikować aktualizację istniejącej instalacji z zachowaniem
@@ -48,9 +47,6 @@ playlist i ulubionych, odtwarzanie, pauzę, zmianę utworu i sterowanie systemow
 Testy urządzeniowe uruchamia się przez `bash gradlew :app:connectedDebugAndroidTest`
 z podłączonym urządzeniem lub emulatorem.
 
-Lint ma lokalnie udokumentowany wyjątek w `CreateNotification`: powiadomienia
-`MediaStyle` z tokenem `MediaSession` są zwolnione z wymogu `POST_NOTIFICATIONS`.
-Wyjątek nie obejmuje ewentualnych przyszłych powiadomień innego rodzaju.
 
 ## Synchronizacja biblioteki
 
@@ -86,3 +82,49 @@ Sprawdzenie na telefonie (aktualizacja istniejącej instalacji, bez odinstalowan
 5. Usuń plik lub odłącz nośnik i sprawdź, czy niedostępny utwór nie jest odtwarzany.
 6. Przywróć nośnik z zachowanym URI i sprawdź powrót utworu na playlistę.
 7. Sprawdź dodawanie/usuwanie ulubionych po zmianie kolejności biblioteki.
+
+## Odtwarzanie w serwisie Media3
+
+`PlaybackService` jest właścicielem jednego ExoPlayera i jednej sesji MediaSession.
+`MusicActivity` łączy się przez MediaController w `onStart` i zwalnia wyłącznie
+kontroler w `onStop`. Serwis zarządza powiadomieniem multimedialnym i trybem
+foreground, audio focus i pauzą po odłączeniu słuchawek. Player jest zwalniany
+przy zniszczeniu serwisu, a nie przy zamknięciu ekranu.
+
+Powiadomienie otwiera ekran bieżącej kolejki bez ponownego wybierania folderu.
+Otwarcie aktualnego utworu z niezmienionej kolejki zachowuje pozycję; jawne
+wybranie innego utworu ustawia jego początek. Obrót ekranu nie wznawia samoczynnie
+pauzy. Stan powtarzania i losowania należy do serwisu. Domyślnie kolejka jest
+zapętlona; włączenie powtarzania jednego utworu wyłącza losowanie i odwrotnie.
+Przyciski poprzedni/następny używają komend Media3 także w powiadomieniu;
+poprzedni może najpierw wrócić na początek bieżącego utworu.
+
+Po usunięciu zadania z ostatnich aplikacji Media3 domyślnie utrzymuje odtwarzanie
+w foreground, jeśli faktycznie trwa. Zadanie w pauzie/bez odtwarzania kończy
+serwis. Kolejka nie jest jeszcze zapisywana do trwałej pamięci na wypadek zabicia
+procesu, wymuszonego zatrzymania aplikacji czy restartu telefonu.
+
+Aplikacja nie deklaruje uprawnienia INTERNET. Kolejka akceptuje lokalne URI
+content/file/android.resource; obce kontrolery mogą sterować odtwarzaniem, ale
+nie mogą podmieniać kolejki. Nie ma starego BroadcastReceivera, ręcznie tworzonego
+powiadomienia ani drugiego serwisu czyszczącego powiadomienie. Schemat bazy pozostaje
+w wersji 4, bez kolejnej migracji.
+
+Testy Robolectric tworzą rzeczywisty serwis, ExoPlayera, MediaSession i kontrolery.
+Sprawdzają kolejkę, pozycję przy ponownym połączeniu, komendy transportowe,
+uprawnienia kontrolerów, filtrowanie URI i zakończenie serwisu w pauzie.
+Nie dekodują plików audio i nie zastępują testu dźwięku na urządzeniu.
+
+Sprawdzenie na telefonie po aktualizacji:
+
+1. Włącz utwór, wyjdź strzałką do folderu i biblioteki: muzyka ma grać dalej.
+2. Otwórz powiadomienie i ten sam utwór: pozycja ma zostać zachowana.
+3. Włącz pauzę, obróć ekran i otwórz powiadomienie: pauza ma pozostać.
+4. Sprawdź następny/poprzedni, przewijanie i zgodność tytułu w ekranie i powiadomieniu.
+5. Sprawdź automatyczne przejście na koniec pliku, pętlę kolejki, repeat-one i shuffle.
+6. Wygasz ekran i sprawdź sterowanie z blokady oraz metadane/okładkę.
+7. Odłącz słuchawki: odtwarzanie powinno się zatrzymać. Sprawdź również reakcję
+   na inny odtwarzacz i połączenie telefoniczne.
+8. Usuń zadanie z ostatnich aplikacji podczas grania, a następnie podczas pauzy.
+9. Sprawdź serduszko i dodanie aktualnego utworu do playlisty po zmianie utworu
+   przyciskiem powiadomienia.

@@ -40,6 +40,12 @@ class MediaViewModel(application:Application) : AndroidViewModel(application){
         return music
     }
 
+    suspend fun loadPlaybackQueue(name: String) = withContext(Dispatchers.IO) {
+        repository.getFolder(name).audioList
+    }
+
+    fun observeMusic(uri: String) = repository.observeMusic(uri)
+
     fun observeFolder(name: String) = repository.observeFolder(name)
 
     data class RefreshState(val isRefreshing: Boolean = false, val failed: Boolean = false)

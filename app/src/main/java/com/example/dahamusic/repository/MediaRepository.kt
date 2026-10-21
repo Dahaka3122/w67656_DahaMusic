@@ -87,6 +87,8 @@ class MediaRepository(private val database: RoomDbHelper) {
         folder.copy(audioList = folder.audioList.filter { it.isAvailable }).apply { id = folder.id }
     }
 
+    fun observeMusic(uri: String) = mediaDao.observeMusic(uri)
+
     suspend fun getMusic(uri: String) = mediaDao.getMusic(uri)
 
     suspend fun setFavorite(intState: Int, uri: String) = database.withTransaction {
