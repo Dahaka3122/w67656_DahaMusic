@@ -8,6 +8,7 @@ import com.example.dahamusic.room.RoomDbHelper
 import com.example.dahamusic.room.RoomFolderModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import com.example.dahamusic.library.MediaStoreAudioSource
@@ -66,6 +67,19 @@ class MediaViewModel(application:Application) : AndroidViewModel(application){
                     _refreshState.value = RefreshState(failed = true)
                 }
             } while (refreshPending)
+        }
+    }
+
+    fun removeMusicFromFolder(name: String, uri: String, onError: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { repository.removeMusicFromFolder(name, uri) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.e("PlaylistEdit", "Unable to remove track from playlist", error)
+                onError()
+            }
         }
     }
 

@@ -22,4 +22,5 @@
     <string name="library_permission_required">Zezwól na dostęp do muzyki, aby odświeżyć bibliotekę.</string>
     <string name="reserved_folder_name">Ta nazwa jest zarezerwowana dla biblioteki.</string>
     <string name="track_unavailable">Ten utwór nie jest już dostępny w folderze.</string>
+    <string name="playlist_remove_failed">Nie udało się usunąć utworu z playlisty. Spróbuj ponownie.</string>
 </resources>

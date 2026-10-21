@@ -161,6 +161,38 @@ class LibrarySynchronizationTest {
         assertTrue(repository.getFolder(LibraryMerger.FAVORITES).audioList.isEmpty())
     }
 
+    @Test fun removingOneTrackKeepsLibraryOtherPlaylistsAndHiddenEntries() = runBlocking<Unit> {
+        val selected = song().apply { id = 7; isFavorite = 1 }
+        val hidden = song("content://media/external/audio/media/43", "Hidden").apply { id = 8; isAvailable = false }
+        val other = song("content://media/external/audio/media/44", "Other").apply { id = 9 }
+        database.roomDao().insertMusics(listOf(selected, hidden, other))
+        database.roomDao().insertFolder(RoomFolderModel("First", listOf(hidden, selected, other)))
+        database.roomDao().insertFolder(RoomFolderModel("Second", listOf(selected)))
+        repository.removeMusicFromFolder("First", selected.audioUri)
+        repository.removeMusicFromFolder("First", selected.audioUri) // repeated click is harmless
+        assertEquals(listOf(8, 9), database.roomDao().getFolder("First").audioList.map { it.id })
+        assertEquals(7, database.roomDao().getFolder("Second").audioList.single().id)
+        assertEquals(3, database.roomDao().readAllMusics().size)
+        assertEquals(1, database.roomDao().getMusic(selected.audioUri)!!.isFavorite)
+    }
+
+    @Test fun removingFromFavoritesOnlyUnfavoritesThatTrackAndSurvivesRefresh() = runBlocking<Unit> {
+        val selected = song().apply { id = 7; isFavorite = 1 }
+        val other = song("content://media/external/audio/media/43", "Other").apply { id = 8; isFavorite = 1 }
+        database.roomDao().insertMusics(listOf(selected, other))
+        database.roomDao().insertFolder(RoomFolderModel("My playlist", listOf(selected, other)))
+        val source = AudioSource { listOf(selected, other) }
+        repository.refreshLibrary(source)
+        repository.removeMusicFromFolder(LibraryMerger.FAVORITES, selected.audioUri)
+        repository.refreshLibrary(source)
+        assertEquals(listOf(8), repository.getFolder(LibraryMerger.FAVORITES).audioList.map { it.id })
+        assertEquals(listOf(7, 8), repository.getFolder("My playlist").audioList.map { it.id })
+        assertEquals(0, database.roomDao().getMusic(selected.audioUri)!!.isFavorite)
+        assertEquals(2, repository.getFolder(LibraryMerger.ALL_MUSIC).audioList.size)
+        repository.removeMusicFromFolder(LibraryMerger.ALL_MUSIC, selected.audioUri)
+        assertEquals(2, repository.getFolder(LibraryMerger.ALL_MUSIC).audioList.size)
+    }
+
     @Test fun migrationFromExportedVersion3PreservesLegacyPlaylistAndConsolidatesDuplicateUris() = runBlocking<Unit> {
         database.close()
         val name = "migration-test.db"

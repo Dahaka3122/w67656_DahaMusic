@@ -232,7 +232,11 @@ class FolderActivity : AppCompatActivity(), Serializable, OnMusicItemClick {
                     true
                 }
                 2 -> {
-                    Toast.makeText(this@FolderActivity, "Do something to remove folder!", Toast.LENGTH_SHORT).show()
+                    viewModel.removeMusicFromFolder(folderName, model.audioUri) {
+                        if (!isDestroyed && !isFinishing) {
+                            Toast.makeText(this, R.string.playlist_remove_failed, Toast.LENGTH_LONG).show()
+                        }
+                    }
                     true
                 }
                 else -> false

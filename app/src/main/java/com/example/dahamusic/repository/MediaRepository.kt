@@ -98,6 +98,22 @@ class MediaRepository(private val database: RoomDbHelper) {
         mediaDao.insertMusics(musics)
     }
 
+    suspend fun removeMusicFromFolder(folderName: String, uri: String) = database.withTransaction {
+        if (folderName == LibraryMerger.ALL_MUSIC) return@withTransaction
+        val folders = mediaDao.readAllFolders()
+        val folder = folders.firstOrNull { it.folderName == folderName } ?: return@withTransaction
+        if (folderName == LibraryMerger.FAVORITES) {
+            mediaDao.setFavorite(0, uri)
+            updateFolderSnapshots(folders, mediaDao.readAllMusics())
+        } else {
+            // Read the current playlist inside the transaction, not the filtered UI snapshot.
+            val remaining = folder.audioList.filterNot { it.audioUri == uri }
+            if (remaining.size != folder.audioList.size) {
+                mediaDao.updateFolder(folder.copy(audioList = remaining).apply { id = folder.id })
+            }
+        }
+    }
+
     suspend fun updateFolder(folder:RoomFolderModel ){
         database.withTransaction {
             if (folder.folderName == LibraryMerger.ALL_MUSIC) return@withTransaction
