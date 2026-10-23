@@ -134,6 +134,9 @@ class MusicActivity : AppCompatActivity() {
         val token = SessionToken(this, ComponentName(this, PlaybackService::class.java))
         val future = MediaController.Builder(this, token)
             .setListener(object : MediaController.Listener {
+                override fun onExtrasChanged(mediaController: MediaController, extras: Bundle) {
+                    if (started && controller === mediaController) selectWhenReady(mediaController)
+                }
                 override fun onDisconnected(mediaController: MediaController) {
                     if (started && controller === mediaController) {
                         controller = null
@@ -150,13 +153,19 @@ class MusicActivity : AppCompatActivity() {
                 controller = connected
                 connected.addListener(playerListener)
                 render()
-                if (pendingSelection) loadSelection(connected)
+                selectWhenReady(connected)
             } catch (error: Exception) {
                 Log.e("Playback", "Unable to connect controller", error)
                 Toast.makeText(this, R.string.playback_connection_failed, Toast.LENGTH_LONG).show()
             }
         }, ContextCompat.getMainExecutor(this))
         handler.post(progressUpdater)
+    }
+
+    private fun selectWhenReady(player: MediaController) {
+        if (pendingSelection && !player.sessionExtras.getBoolean(PlaybackService.EXTRA_RESTORING)) {
+            loadSelection(player)
+        }
     }
 
     private fun loadSelection(player: MediaController) {
@@ -187,7 +196,7 @@ class MusicActivity : AppCompatActivity() {
         setIntent(intent)
         selectionJob?.cancel()
         pendingSelection = intent.hasExtra("folderName")
-        controller?.let { if (pendingSelection) loadSelection(it) else render() }
+        controller?.let { if (pendingSelection) selectWhenReady(it) else render() }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -246,7 +255,8 @@ class MusicActivity : AppCompatActivity() {
 
     private fun renderProgress() {
         val player = controller ?: return
-        val duration = player.duration.takeIf { it != C.TIME_UNSET && it >= 0L } ?: 0L
+        val duration = player.duration.takeIf { it != C.TIME_UNSET && it >= 0L }
+            ?: currentSong?.audioDuration?.toLongOrNull()?.coerceAtLeast(0) ?: 0L
         binding.musicDuration.text = DateUtils.formatElapsedTime(duration / 1000)
         if (!seeking) {
             val position = player.currentPosition.coerceAtLeast(0)

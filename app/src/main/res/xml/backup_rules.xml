@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- MediaStore URIs and a playback position belong to this device. Keep other app backups. -->
+    <exclude domain="sharedpref" path="playback_state.xml" />
+</full-backup-content>

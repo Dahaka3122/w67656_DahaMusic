@@ -45,6 +45,12 @@ class MainActivity : AppCompatActivity(), OnFolderListener, Serializable {
 
         viewModel = ViewModelProvider(this).get(MediaViewModel::class.java)
         binding.cardMenu.elevation = 0F
+        binding.musicalNote.apply {
+            contentDescription = getString(R.string.open_saved_player)
+            isFocusable = true
+            setOnClickListener { startActivity(Intent(this@MainActivity, MusicActivity::class.java)) }
+        }
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(binding.musicalNote, getString(R.string.open_saved_player))
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             window.statusBarColor = getColor(R.color.main_light)

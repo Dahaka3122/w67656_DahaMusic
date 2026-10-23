@@ -26,4 +26,5 @@
     <string name="playback_failed">Nie udało się odtworzyć pliku. Wybierz inny utwór lub sprawdź dostęp do muzyki.</string>
     <string name="playback_connection_failed">Nie udało się połączyć z odtwarzaczem. Otwórz ekran ponownie.</string>
     <string name="no_current_track">Wybierz utwór z biblioteki</string>
+    <string name="open_saved_player">Otwórz ostatni odtwarzacz</string>
 </resources>
